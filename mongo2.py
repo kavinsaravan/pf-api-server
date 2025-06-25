@@ -12,7 +12,7 @@ collection = db["transactions"]
 # Generate 50 mock transaction documents
 categories = ["Groceries", "Utilities", "Entertainment", "Transport", "Dining", "Health"]
 descriptions = {
-    "Groceries": ["Walmart", "Trader Joe's", "Costco"],
+    "Groceries": ["Walmartt", "Trader Joe's", "Costco"],
     "Utilities": ["Electric Bill", "Water Bill", "Internet"],
     "Entertainment": ["Netflix", "Spotify", "Movie Theater"],
     "Transport": ["Uber", "Gas Station", "Bus Pass"],

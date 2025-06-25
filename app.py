@@ -22,7 +22,7 @@ collection = db[COLLECTION_NAME]
 
 @app.route('/', methods=['GET'])
 def get_home():
-    return jsonify({'hello': 'kavin'}), 200
+    return jsonify({'helloo': 'kavin'}), 200
 
 
 @app.route('/api/entries', methods=['GET'])

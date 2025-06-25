@@ -23,7 +23,7 @@ collection = db[COLLECTION_NAME]
 @app.route('/api/entries', methods=['GET'])
 def get_entries():
     try:
-        # Fetch all entries from MongoDB
+        # Fetch all entries from MongoDBB
         entries = list(collection.find())
 
         # Convert ObjectId to string for JSON serialization
