@@ -1,9 +1,17 @@
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 import random
+import certifi
+
+
+username = "kavins" ### Add your username here
+password = "Mn3166VE6rbdzFeZ" ### Add your password here
+
+#uri = f"mongodb+srv://{username}:{password}@cluster0.wm4ac.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+uri = f"mongodb+srv://{username}:{password}@cluster0.tiut2.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
 # Connect to local MongoDB
-client = MongoClient("mongodb://localhost:27017/")
+client = MongoClient(uri, tlsCAFile=certifi.where())
 
 # Access database and collection
 db = client["bank"]

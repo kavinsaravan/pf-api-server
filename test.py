@@ -22,7 +22,7 @@ collection = db["users"]
 collection.insert_one({"name": "Bob", "age": 40})
 
 # Perform a simple query
-result = collection.find_one({"name": "Bobb"})
+result = collection.find_one({"name": "Bobby"})
 
 # Print the result
 print(result)
