@@ -22,6 +22,6 @@ for record in root.findall("record"):
 # Insert documents into MongoDB
 if documents:
     collection.insert_many(documents)
-    print(f"Inserted {len(documents)} documents into MongoDB.")
+    print(f"Inserted {len(documents)} documents into the MongoDB.")
 else:
     print("No records found in XML.")
