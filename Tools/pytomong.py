@@ -11,12 +11,14 @@ xml_file_path = "workspace.xml"
 
 # Parse the XML file
 tree = ET.parse(xml_file_path)
+print("hello", tree)
 root = tree.getroot()
+print("hello", root)
 
 # Loop through each <record> and convert to dictionary
 documents = []
-for record in root.findall("record"):
-    doc = {child.tag: child.text for child in record}
+for option in root.findall("component"):
+    doc = {child.tag: child.text for child in option}
     documents.append(doc)
 
 # Insert documents into MongoDB
