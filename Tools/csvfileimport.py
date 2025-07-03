@@ -7,7 +7,7 @@ DATABASE_NAME = "csv"
 COLLECTION_NAME = "csvinfo"
 
 # CSV file path
-CSV_FILE_PATH = "sample_sales_data.csv"
+CSV_FILE_PATH = "../sample_sales_data.csv"
 
 # Connect to MongoDB
 client = MongoClient(MONGO_URI)
