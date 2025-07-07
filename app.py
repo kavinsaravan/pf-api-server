@@ -67,7 +67,7 @@ def create_entry():
 
 @app.route('/api/check_transaction', methods=['POST'])
 def check_transaction():
-    print("hey checking transaction")
+    print("hey checking the transaction")
     try:
         request_data = request.get_json()
         print(request_data)
