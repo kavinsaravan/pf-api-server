@@ -8,7 +8,7 @@ db = client["mydatabase"]
 collection = db["mycollection"]
 
 # Insert a document
-doc = {"name": "Alicee", "age": 30, "city": "New York"}
+doc = {"name": "Alice", "age": 30, "city": "New York"}
 insert_result = collection.insert_one(doc)
 print(f"Inserted document with _id: {insert_result.inserted_id}")
 
