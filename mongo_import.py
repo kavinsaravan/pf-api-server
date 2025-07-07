@@ -22,7 +22,7 @@ categories = ["Groceries", "Utilities", "Entertainment", "Transport", "Dining", 
 descriptions = {
     "Groceries": ["Walmartt", "Trader Joe's", "Costco"],
     "Utilities": ["Electric Bill", "Water Bill", "Internet"],
-    "Entertainment": ["Netflix", "Spotify", "Movie Theater"],
+    "Entertainment": ["Netfl    ix", "Spotify", "Movie Theater"],
     "Transport": ["Uber", "Gas Station", "Bus Pass"],
     "Dining": ["McDonald's", "Starbucks", "Chipotle"],
     "Health": ["Pharmacy", "Doctor Visit", "Gym Membership"]
