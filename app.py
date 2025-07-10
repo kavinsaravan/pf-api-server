@@ -5,7 +5,9 @@ from datetime import datetime
 import os
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for React frontend
+ # Enable CORS for React frontend
+#CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
+CORS(app)
 
 # MongoDB connection
 # Update these with your MongoDB credentials
@@ -18,7 +20,9 @@ client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 collection = db[COLLECTION_NAME]
 
-
+@app.route('/', methods=['GET'])
+def home():
+    return {'message': 'hello'}
 @app.route('/api/entries', methods=['GET'])
 def get_entries():
     try:
@@ -86,7 +90,8 @@ def check_transaction():
         return jsonify({'error': str(e)}), 500
 
 
+port = int(os.environ.get("PF_SERVER_PORT", 5000))
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=port)
 
