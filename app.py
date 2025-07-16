@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import os
 
 
-load_dotenv()
+load_dotenv('../app.env')
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -20,14 +20,27 @@ CORS(app)
 
 # MongoDB connection
 # Update these with your MongoDB credentials
-MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
-DB_NAME = 'bankdb'
+#MONGO_URI = os.getenv('MONGO_URI', 'mongodb://service.sandymist.com:19340/')
+MONGO_HOST = os.getenv('MONGO_HOST', 'localhost')
+MONGO_PORT = os.getenv('MONGO_PORT', '27017')
+MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', '')
+MONGO_DB_USERNAME = os.getenv('MONGO_DB_USERNAME', '')
+MONGO_DB_PASSWORD = os.getenv('MONGO_DB_PASSWORD', '')
 COLLECTION_NAME = 'transactions'
 
 # Initialize MongoDB client
-client = MongoClient(MONGO_URI)
-db = client[DB_NAME]
+#client = MongoClient(MONGO_URI)
+client = MongoClient(
+    host=MONGO_HOST,
+    port=int(MONGO_PORT),
+    username=MONGO_DB_USERNAME,
+    password=MONGO_DB_PASSWORD,
+    authSource=MONGO_DB_NAME,  # Usually 'admin' or your database name
+    authMechanism="SCRAM-SHA-1"  # Default auth mechanism
+)
+db = client[MONGO_DB_NAME]
 collection = db[COLLECTION_NAME]
+
 
 
 @app.route('/', methods=['GET'])
