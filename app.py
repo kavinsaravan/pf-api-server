@@ -1,8 +1,17 @@
+import openai
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from openai import OpenAI
 from pymongo import MongoClient
 from datetime import datetime
+from dotenv import load_dotenv
 import os
+
+
+load_dotenv()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
 
 app = Flask(__name__)
  # Enable CORS for React frontend
@@ -19,6 +28,7 @@ COLLECTION_NAME = 'transactions'
 client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 collection = db[COLLECTION_NAME]
+
 
 @app.route('/', methods=['GET'])
 def home():
@@ -88,6 +98,59 @@ def check_transaction():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/categorize', methods=['POST'])
+def categorize_transaction():
+    try:
+        data = request.get_json()
+        description = data.get('description', '')
+
+        if not description:
+            return jsonify({'error': 'Description is required'}), 400
+
+        # Call OpenAI API to categorize the transaction
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"""You are a financial transaction categorizer. Given a transaction description, 
+                    categorize it into one of these categories based on the description name or which company the transaction was made at: Office, Technology, Travel, Meals, Marketing, 
+                    Utilities, Education, Entertainment, Transportation, Insurance, Professional, Rent, 
+                    Security, Maintenance, Taxes, Payroll, or Other. 
+                    Respond with ONLY the category name, nothing else."""
+                },
+                {
+                    "role": "user",
+                    "content": f"Categorize this transaction: {description}"
+                }
+            ],
+            temperature=0.3,
+            max_tokens=50
+        )
+
+        category = response.choices[0].message.content.strip()
+
+        # Validate the category
+        valid_categories = [
+            'Office', 'Technology', 'Travel', 'Meals', 'Marketing',
+            'Utilities', 'Education', 'Entertainment', 'Transportation',
+            'Insurance', 'Professional', 'Rent', 'Security', 'Maintenance',
+            'Taxes', 'Payroll', 'Other'
+        ]
+
+        if category not in valid_categories:
+            category = 'Other'
+
+        return jsonify({
+            'description': description,
+            'suggested_category': category
+        }), 200
+
+    except Exception as e:
+        print(f"Error calling OpenAI API: {e}")
+        return jsonify({'error': 'Failed to categorize transaction'}), 500
 
 
 port = int(os.environ.get("PF_SERVER_PORT", 5000))
