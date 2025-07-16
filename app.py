@@ -71,7 +71,7 @@ def create_entry():
         data = request.get_json()
 
         # Validate required fields
-        required_fields = ['date', 'description', 'category', 'amount']
+        required_fields = ['date', 'merchant', 'category', 'amount']
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
@@ -100,7 +100,7 @@ def check_transaction():
         print(request_data)
 
         # Validate required fields
-        required_fields = ['description', 'category', 'amount']
+        required_fields = ['merchant', 'category', 'amount']
         for field in required_fields:
             if field not in request_data:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
@@ -117,10 +117,10 @@ def check_transaction():
 def categorize_transaction():
     try:
         data = request.get_json()
-        description = data.get('description', '')
+        merchant = data.get('merchant', '')
 
-        if not description:
-            return jsonify({'error': 'Description is required'}), 400
+        if not merchant:
+            return jsonify({'error': 'Merchant is required'}), 400
 
         # Call OpenAI API to categorize the transaction
         response = openai_client.chat.completions.create(
@@ -128,15 +128,15 @@ def categorize_transaction():
             messages=[
                 {
                     "role": "system",
-                    "content": f"""You are a financial transaction categorizer. Given a transaction description, 
-                    categorize it into one of these categories based on the description name or which company the transaction was made at: Office, Technology, Travel, Meals, Marketing, 
+                    "content": f"""You are a financial transaction categorizer. Given the merchant from which the transaction was made, 
+                    categorize it into one of these categories: Office, Technology, Travel, Meals, Marketing, 
                     Utilities, Education, Entertainment, Transportation, Insurance, Professional, Rent, 
                     Security, Maintenance, Taxes, Payroll, or Other. 
                     Respond with ONLY the category name, nothing else."""
                 },
                 {
                     "role": "user",
-                    "content": f"Categorize this transaction: {description}"
+                    "content": f"Categorize this transaction: {merchant}"
                 }
             ],
             temperature=0.3,
@@ -157,7 +157,7 @@ def categorize_transaction():
             category = 'Other'
 
         return jsonify({
-            'description': description,
+            'merchant': merchant,
             'suggested_category': category
         }), 200
 
