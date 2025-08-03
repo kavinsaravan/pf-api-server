@@ -1,16 +1,51 @@
-import openai
+from http.client import HTTPException
+from typing import Optional
+#from fastapi import HTTPException
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from openai import OpenAI
+from pydantic import BaseModel
 from pymongo import MongoClient
 from datetime import datetime
 from dotenv import load_dotenv
+from firebase_auth import FirebaseAuthAdmin
 import os
 
 
 load_dotenv('../app.env')
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+
+# Pydantic models for request validation
+class SignUpRequest(BaseModel):
+    email: str
+    password: str
+    display_name: Optional[str] = None
+
+class SignInRequest(BaseModel):
+    email: str
+    password: str
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+
+# Dependency to verify Firebase ID token
+async def get_current_user(authorization: str):
+    try:
+        token = authorization.replace("Bearer ", "")
+
+        result = FirebaseAuthAdmin.verify_id_token(token)
+
+        if result["success"]:
+            return result["decoded_token"]
+        else:
+            raise HTTPException(status_code=401, detail=result["error"])
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+
 
 
 app = Flask(__name__)
@@ -46,6 +81,80 @@ collection = db[COLLECTION_NAME]
 @app.route('/', methods=['GET'])
 def home():
     return {'message': 'hello'}
+
+@app.route("/api/signup", methods=['POST'])
+def api_signup():
+    """
+    Sign up endpoint using pure Firebase Admin SDK
+    Returns custom token for client-side sign-in
+    """
+    print(f"received sign up request")
+    try:
+        json_data = request.get_json()
+
+        if not json_data or 'email' not in json_data or 'password' not in json_data:
+            return jsonify({'error': 'Email and password are required'}), 400
+
+        email = json_data['email']
+        password = json_data['password']
+        display_name = json_data.get('display_name')
+        print(f"received sign up request for email {email}")
+        result = FirebaseAuthAdmin.sign_up(
+            email=email,
+            password=password,
+            display_name=display_name
+        )
+
+        if result["success"]:
+            # Don't return verification_link in production - send it via email instead
+            return jsonify({
+                "uid": result["uid"],
+                "email": result["email"],
+                "custom_token": result["custom_token"],
+                "display_name": result["display_name"],
+                "message": "User created. Use custom_token with signInWithCustomToken() on client."
+            })
+        else:
+            raise Exception(result["error"])
+    except Exception as e:
+        print("error while signing up", e)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route("/api/signin", methods=['POST'])
+def api_signin():
+    """
+    Sign in endpoint - still uses REST API for password verification
+    """
+    print(f"received sign in request")
+    try:
+        json_data = request.get_json()
+
+        if not json_data or 'email' not in json_data or 'password' not in json_data:
+            return jsonify({'error': 'Email and password are required'}), 400
+
+        email = json_data['email']
+        password = json_data['password']
+        print(f"received sign in request for email {email}")
+
+        result = FirebaseAuthAdmin.sign_in(email, password)
+        print(f"this is the result {result}")
+
+        if result["success"]:
+            return jsonify({
+                "status": "ok",
+                "uid": result["uid"],
+                "id_token": result["id_token"],
+                "email": result["email"],
+                "display_name": result["display_name"]
+            })
+        else:
+            raise Exception(result["error"])
+    except Exception as e:
+        print("error while signing in", e)
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/entries', methods=['GET'])
 def get_entries():
     try:
