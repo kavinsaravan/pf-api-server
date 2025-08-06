@@ -50,8 +50,8 @@ async def get_current_user(authorization: str):
 
 app = Flask(__name__)
  # Enable CORS for React frontend
-#CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
-CORS(app)
+CORS(app, origins=["http://localhost:3000", "https://pf-reactjs.onrender.com"], supports_credentials=True)
+#CORS(app)
 
 # MongoDB connection
 # Update these with your MongoDB credentials
