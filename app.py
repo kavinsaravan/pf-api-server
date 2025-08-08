@@ -278,5 +278,6 @@ def categorize_transaction():
 port = int(os.environ.get("PF_SERVER_PORT", 5000))
 
 if __name__ == '__main__':
-    app.run(debug=True, port=port)
+    print("starting the server")
+    app.run(host='0.0.0.0', debug=True, port=port)
 
