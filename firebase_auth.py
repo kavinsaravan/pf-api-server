@@ -1,11 +1,17 @@
+import os
 import firebase_admin
+from dotenv import load_dotenv
 from firebase_admin import credentials, auth
 import requests
 import json
 from typing import Optional, Dict, Any
 
+load_dotenv('../app.env')
+
 # Initialize Firebase Admin
-cred = credentials.Certificate("../personalfinance-7ee40-firebase-adminsdk-fbsvc-f287c845ad.json")
+credentials_string = os.getenv('FIREBASE_CREDENTIALS_JSON', '')
+firebase_config_dict = json.loads(credentials_string)
+cred = credentials.Certificate(firebase_config_dict)
 firebase_admin.initialize_app(cred)
 
 # You'll need your Web API Key from Firebase Console
