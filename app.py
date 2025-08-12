@@ -35,7 +35,7 @@ class RefreshTokenRequest(BaseModel):
 
 
 # Dependency to verify Firebase ID token
-async def get_current_user(authorization: str):
+def get_current_user(authorization: str):
     try:
         token = authorization.replace("Bearer ", "")
 
@@ -44,9 +44,9 @@ async def get_current_user(authorization: str):
         if result["success"]:
             return result["decoded_token"]
         else:
-            raise HTTPException(status_code=401, detail=result["error"])
+            return None
     except Exception as e:
-        raise HTTPException(status_code=401, detail=str(e))
+        return None
 
 
 
@@ -113,7 +113,7 @@ def api_signup():
             return jsonify({
                 "uid": result["uid"],
                 "email": result["email"],
-                "custom_token": result["custom_token"],
+                "token": result["custom_token"],
                 "display_name": result["display_name"],
                 "message": "User created. Use custom_token with signInWithCustomToken() on client."
             })
@@ -147,7 +147,7 @@ def api_signin():
             return jsonify({
                 "status": "ok",
                 "uid": result["uid"],
-                "id_token": result["id_token"],
+                "token": result["id_token"],
                 "email": result["email"],
                 "display_name": result["display_name"]
             })
@@ -155,6 +155,43 @@ def api_signin():
             raise Exception(result["error"])
     except Exception as e:
         print("error while signing in", e)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route("/api/profile", methods=['GET'])
+def api_get_profile():
+    """
+    Get user profile endpoint - requires valid Firebase ID token
+    """
+    try:
+        # Get authorization header
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({'error': 'Authorization header is required'}), 401
+
+        # Verify the token and get user info
+        decoded_token = get_current_user(auth_header)
+        if not decoded_token:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+
+        # Get additional user info from Firebase
+        uid = decoded_token.get('uid')
+        result = FirebaseAuthAdmin.get_user(uid)
+
+        if result["success"]:
+            user_data = result["user"]
+            return jsonify({
+                "uid": user_data["uid"],
+                "email": user_data["email"],
+                "display_name": user_data["display_name"],
+                "email_verified": user_data["email_verified"],
+                "disabled": user_data["disabled"]
+            })
+        else:
+            return jsonify({'error': result["error"]}), 404
+
+    except Exception as e:
+        print("Error getting user profile:", e)
         return jsonify({'error': str(e)}), 500
 
 
