@@ -13,10 +13,10 @@ import os
 
 
 load_dotenv('../app.env')
-#OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-#openai_client = OpenAI(api_key=OPENAI_API_KEY)
-anthropic_client = OpenAI(api_key=ANTHROPIC_API_KEY, base_url="https://api.anthropic.com/v1/")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+#ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
+#anthropic_client = OpenAI(api_key=ANTHROPIC_API_KEY, base_url="https://api.anthropic.com/v1/")
 #print(ANTHROPIC_API_KEY)
 
 
@@ -272,9 +272,9 @@ def categorize_transaction():
             return jsonify({'error': 'Merchant is required'}), 400
 
         # Call OpenAI API to categorize the transaction
-        response = anthropic_client.chat.completions.create(
-            #model="gpt-4o-mini",
-            model="claude-opus-4-1-20250805",
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            #model="claude-opus-4-1-20250805",
             messages=[
                 {
                     "role": "system",
