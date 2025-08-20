@@ -1,6 +1,5 @@
-from http.client import HTTPException
+import json
 from typing import Optional
-#from fastapi import HTTPException
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from openai import OpenAI
@@ -314,6 +313,64 @@ def categorize_transaction():
     except Exception as e:
         print(f"Error calling OpenAI API: {e}")
         return jsonify({'error': 'Failed to categorize transaction'}), 500
+
+
+@app.route('/api/time_window', methods = ['POST'])
+def search_transactions(query: str):
+    time_window = get_time_window(query)
+    return jsonify({
+        "query": query,
+        "time_window": time_window
+    })
+
+#step 1
+def get_time_window(query: str) -> str:
+    today = datetime.date.today().isoformat()
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",  # lightweight & good for structured output
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a helpful assistant for a financial transaction search API. "
+                    "Given a user query, extract the specific date range they are asking about. "
+                    f"Today is {today}. "
+                    "If the query is vague (e.g., 'recent transactions'), return your best guess (e.g., last 30 days). "
+                    "Always respond in strict JSON with keys 'start_date' and 'end_date' in YYYY-MM-DD format."
+                )
+            },
+            {"role": "user", "content": query}
+        ],
+        temperature=0,
+        response_format={"type": "json_object"}  # ensures valid JSON
+    )
+
+    #time_window = response.choices[0].message.content
+    time_window = json.loads(response.choices[0].message.content)
+    return time_window
+
+#step 2
+def query_transactions(start_date: str, end_date: str):
+
+    # Convert to datetime objects
+    start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
+    end_datetime = datetime.strptime(end_date + " 23:59:59", "%Y-%m-%d %H:%M:%S")
+
+    # Query the collection
+    query = {
+        "date": {
+            "$gte": start_datetime,
+            "$lte": end_datetime
+        }
+    }
+
+    results = collection.find(query).limit(10)
+
+    vals = []
+    for doc in results:
+        vals.append(doc)
+
+    return vals
 
 
 port = int(os.environ.get("PF_SERVER_PORT", 5000))
