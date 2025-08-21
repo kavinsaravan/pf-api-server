@@ -1,5 +1,7 @@
 import json
 from typing import Optional
+
+from bson import json_util
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from openai import OpenAI
@@ -350,7 +352,7 @@ def get_time_window(query: str) -> str:
     return time_window
 
 #step 2
-def query_transactions(start_date: str, end_date: str):
+def query_transactions(start_date: str, end_date: str) -> list[{}]:
 
     # Convert to datetime objects
     start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
@@ -371,6 +373,35 @@ def query_transactions(start_date: str, end_date: str):
         vals.append(doc)
 
     return vals
+
+#step 3
+def get_insights(query: str, transactions: list[{}]):
+    #transactions_json = json.dumps(transactions)
+    transactions_json = json_util.dumps(transactions, ensure_ascii=False)
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",  # lightweight & good for structured output
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a helpful assistant for a financial transaction search API. "
+                    f"""Run this {query} on the data provided in {transactions} to generate insights related to the
+                     query about the data in transactions """
+                    #"Given a user query, extract the specific date range they are asking about. "
+                    "If the query is vague (e.g., 'recent transactions'), return your best guess (e.g., last 30 days). "
+                    "Always respond with a JSON string that contains the insights"
+                )
+            },
+            #{"role": "user", "content": query}
+            {"role": "user", "content": f"Query: {query}\n\nTransactions: {transactions_json}"}
+
+        ],
+        temperature=0,
+        response_format={"type": "json_object"}
+    )
+
+    #insights = json.loads(response.choices[0].message.content)
+    return response.choices[0].message.content
 
 
 port = int(os.environ.get("PF_SERVER_PORT", 5000))

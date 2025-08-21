@@ -10,8 +10,13 @@ def test_query_transactions():
     transactions = app.query_transactions('2024-12-01', '2025-06-21')
     print(transactions)
 
+def test_get_insights():
+    query = "how much did I spend in target last month?"
+    transactions = app.get_insights(query, app.query_transactions('2024-12-01', '2025-06-21'))
+    print(transactions)
 
 if __name__ == '__main__':
-    print(test_query_transactions())
+    #print(test_query_transactions())
+    print(test_get_insights())
 
 
