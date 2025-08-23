@@ -10,6 +10,7 @@ from pymongo import MongoClient
 from datetime import datetime
 from dotenv import load_dotenv
 from firebase_auth import FirebaseAuthAdmin
+from flask_cors import cross_origin
 import os
 
 
@@ -54,8 +55,10 @@ def get_current_user(authorization: str):
 
 app = Flask(__name__)
  # Enable CORS for React frontend
-CORS(app, origins=["http://localhost:3000", "https://pf-reactjs.onrender.com"], supports_credentials=True)
+#CORS(app, origins=["http://localhost:3000", "https://pf-reactjs.onrender.com"], supports_credentials=True)
+#CORS(app, origins=["http://localhost:3000"])
 #CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 
 # MongoDB connection
 # Update these with your MongoDB credentials
@@ -314,11 +317,15 @@ def categorize_transaction():
 
     except Exception as e:
         print(f"Error calling OpenAI API: {e}")
-        return jsonify({'error': 'Failed to categorize transaction'}), 500
+        return jsonify({'error': ''
+                                 ''
+                                 ''
+                                 'Failed to categorize transaction'}), 500
 
 
-@app.route('/api/time_window', methods = ['POST'])
-def search_transactions(query: str):
+@app.route('/api/insights', methods = ['GET'])
+def get_insights(query: str):
+    # step 1
     time_window = get_time_window(query)
     return jsonify({
         "query": query,
@@ -327,29 +334,33 @@ def search_transactions(query: str):
 
 #step 1
 def get_time_window(query: str) -> str:
-    today = datetime.date.today().isoformat()
-    response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",  # lightweight & good for structured output
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a helpful assistant for a financial transaction search API. "
-                    "Given a user query, extract the specific date range they are asking about. "
-                    f"Today is {today}. "
-                    "If the query is vague (e.g., 'recent transactions'), return your best guess (e.g., last 30 days). "
-                    "Always respond in strict JSON with keys 'start_date' and 'end_date' in YYYY-MM-DD format."
-                )
-            },
-            {"role": "user", "content": query}
-        ],
-        temperature=0,
-        response_format={"type": "json_object"}  # ensures valid JSON
-    )
+    try:
+        today = datetime.date.today().isoformat()
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",  # lightweight & good for structured output
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a helpful assistant for a financial transaction search API. "
+                        "Given a user query, extract the specific date range they are asking about. "
+                        f"Today is {today}. "
+                        "If the query is vague (e.g., 'recent transactions'), return your best guess (e.g., last 30 days). "
+                        "Always respond in strict JSON with keys 'start_date' and 'end_date' in YYYY-MM-DD format."
+                    )
+                },
+                {"role": "user", "content": query}
+            ],
+            temperature=0,
+            response_format={"type": "json_object"}  # ensures valid JSON
+        )
 
-    #time_window = response.choices[0].message.content
-    time_window = json.loads(response.choices[0].message.content)
-    return time_window
+        #time_window = response.choices[0].message.content
+        time_window = json.loads(response.choices[0].message.content)
+        return time_window
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 #step 2
 def query_transactions(start_date: str, end_date: str) -> list[{}]:
@@ -375,7 +386,7 @@ def query_transactions(start_date: str, end_date: str) -> list[{}]:
     return vals
 
 #step 3
-def get_insights(query: str, transactions: list[{}]):
+def resolve_query(query: str, transactions: list[{}]):
     #transactions_json = json.dumps(transactions)
     transactions_json = json_util.dumps(transactions, ensure_ascii=False)
     response = openai_client.chat.completions.create(
