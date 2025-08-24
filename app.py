@@ -1,4 +1,5 @@
 import json
+#from calendar import error
 from typing import Optional
 
 from bson import json_util
@@ -7,10 +8,9 @@ from flask_cors import CORS
 from openai import OpenAI
 from pydantic import BaseModel
 from pymongo import MongoClient
-from datetime import datetime
+import datetime
 from dotenv import load_dotenv
 from firebase_auth import FirebaseAuthAdmin
-from flask_cors import cross_origin
 import os
 
 
@@ -58,7 +58,8 @@ app = Flask(__name__)
 #CORS(app, origins=["http://localhost:3000", "https://pf-reactjs.onrender.com"], supports_credentials=True)
 #CORS(app, origins=["http://localhost:3000"])
 #CORS(app)
-CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
+#CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
+CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"])
 
 # MongoDB connection
 # Update these with your MongoDB credentials
@@ -324,18 +325,37 @@ def categorize_transaction():
 
 
 @app.route('/api/insights', methods = ['GET'])
-def get_insights(query: str):
-    # step 1
-    time_window = get_time_window(query)
-    return jsonify({
-        "query": query,
-        "time_window": time_window
-    })
+def get_insights():
+    try:
+        query = request.args.get('query', '')
+        if not query:
+            return jsonify({'error': 'Query parameter is required'}), 400
+
+        # step 1
+        print("starting step 1")
+        time_window = get_time_window(query)
+        print("after calling get_time_window", time_window)
+        start_date = time_window["start_date"]
+        end_date = time_window["end_date"]
+        print("start date:", start_date)
+        print("end date:", end_date)
+        #step 2
+        transactions = query_transactions(start_date, end_date)
+        #step 3
+        insights = resolve_query(query, transactions)
+        return jsonify({
+            "insights": insights
+        })
+
+    except Exception as e:
+        print('error', e)
+        return jsonify({'error': str(e)}), 500
 
 #step 1
-def get_time_window(query: str) -> str:
+def get_time_window(query: str) -> dict[str, str]:
     try:
         today = datetime.date.today().isoformat()
+        print("today:", today)
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",  # lightweight & good for structured output
             messages=[
@@ -359,7 +379,7 @@ def get_time_window(query: str) -> str:
         time_window = json.loads(response.choices[0].message.content)
         return time_window
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}
 
 
 #step 2
@@ -386,7 +406,7 @@ def query_transactions(start_date: str, end_date: str) -> list[{}]:
     return vals
 
 #step 3
-def resolve_query(query: str, transactions: list[{}]):
+def resolve_query(query: str, transactions: list[{}]) -> str:
     #transactions_json = json.dumps(transactions)
     transactions_json = json_util.dumps(transactions, ensure_ascii=False)
     response = openai_client.chat.completions.create(
