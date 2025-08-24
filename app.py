@@ -210,7 +210,7 @@ def get_entries():
         for entry in entries:
             entry['_id'] = str(entry['_id'])
             # Ensure date is properly formatted
-            if isinstance(entry.get('date'), datetime):
+            if isinstance(entry.get('date'), datetime.datetime):
                 entry['date'] = entry['date'].isoformat()
 
         return jsonify(entries), 200
