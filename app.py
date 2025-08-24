@@ -386,8 +386,8 @@ def get_time_window(query: str) -> dict[str, str]:
 def query_transactions(start_date: str, end_date: str) -> list[{}]:
 
     # Convert to datetime objects
-    start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
-    end_datetime = datetime.strptime(end_date + " 23:59:59", "%Y-%m-%d %H:%M:%S")
+    start_datetime = datetime.datetime.strptime(start_date, "%Y-%m-%d")
+    end_datetime = datetime.datetime.strptime(end_date + " 23:59:59", "%Y-%m-%d %H:%M:%S")
 
     # Query the collection
     query = {
