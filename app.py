@@ -56,7 +56,6 @@ def get_current_user(authorization: str):
 app = Flask(__name__)
  # Enable CORS for React frontend
 #CORS(app, origins=["http://localhost:3000", "https://pf-reactjs.onrender.com"], supports_credentials=True)
-#CORS(app, origins=["http://localhost:3000"])
 #CORS(app)
 #CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"])
