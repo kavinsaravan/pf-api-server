@@ -434,6 +434,95 @@ def resolve_query(query: str, transactions: list[{}]) -> str:
     return response.choices[0].message.content
 
 
+@app.route('/api/uploadcsv', methods=['POST'])
+def upload_transactions():
+    """
+    Bulk upload transactions from CSV data
+    Expects a JSON array of transaction objects in the request body
+    """
+    try:
+        data = request.get_json()
+        
+        # Validate that we received a list
+        if not isinstance(data, list):
+            return jsonify({'error': 'Expected an array of transactions'}), 400
+        
+        if not data:
+            return jsonify({'error': 'No transactions provided'}), 400
+        
+        # Validate each transaction
+        required_fields = ['date', 'merchant', 'amount']
+        processed_transactions = []
+        validation_errors = []
+        
+        for i, transaction in enumerate(data):
+            # Check required fields
+            missing_fields = [field for field in required_fields if field not in transaction or transaction[field] is None]
+            if missing_fields:
+                validation_errors.append(f"Transaction {i+1}: Missing required fields: {', '.join(missing_fields)}")
+                continue
+            
+            # Process the transaction
+            processed_transaction = {
+                'date': transaction['date'],
+                'merchant': transaction['merchant'],
+                'amount': float(transaction['amount']),
+                'category': transaction.get('category', 'Uncategorized'),
+                'created_at': datetime.datetime.utcnow(),
+                'source': 'csv_upload'
+            }
+            
+            # Convert date string to datetime object if it's a string
+            if isinstance(processed_transaction['date'], str):
+                try:
+                    # Try different date formats
+                    date_formats = ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%Y-%m-%d %H:%M:%S']
+                    parsed_date = None
+                    for date_format in date_formats:
+                        try:
+                            parsed_date = datetime.datetime.strptime(processed_transaction['date'], date_format)
+                            break
+                        except ValueError:
+                            continue
+                    
+                    if parsed_date is None:
+                        validation_errors.append(f"Transaction {i+1}: Invalid date format: {processed_transaction['date']}")
+                        continue
+                    
+                    processed_transaction['date'] = parsed_date
+                except Exception as e:
+                    validation_errors.append(f"Transaction {i+1}: Date parsing error: {str(e)}")
+                    continue
+            
+            processed_transactions.append(processed_transaction)
+        
+        # Return validation errors if any
+        if validation_errors:
+            return jsonify({
+                'error': 'Validation failed',
+                'validation_errors': validation_errors,
+                'processed_count': len(processed_transactions),
+                'total_count': len(data)
+            }), 400
+        
+        # Insert all valid transactions into MongoDB
+        if processed_transactions:
+            result = collection.insert_many(processed_transactions)
+            inserted_count = len(result.inserted_ids)
+            
+            return jsonify({
+                'message': f'Successfully uploaded {inserted_count} transactions',
+                'inserted_count': inserted_count,
+                'inserted_ids': [str(id) for id in result.inserted_ids]
+            }), 201
+        else:
+            return jsonify({'error': 'No valid transactions to insert'}), 400
+    
+    except Exception as e:
+        print(f"Error in upload_transactions: {e}")
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+
 port = int(os.environ.get("PF_SERVER_PORT", 5000))
 
 if __name__ == '__main__':
