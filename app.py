@@ -510,10 +510,22 @@ def upload_transactions():
             result = collection.insert_many(processed_transactions)
             inserted_count = len(result.inserted_ids)
             
+            # Retrieve the inserted transactions to return them
+            inserted_transactions = list(collection.find({'_id': {'$in': result.inserted_ids}}))
+            
+            # Convert ObjectId to string and format dates for JSON serialization
+            for transaction in inserted_transactions:
+                transaction['_id'] = str(transaction['_id'])
+                if isinstance(transaction.get('date'), datetime.datetime):
+                    transaction['date'] = transaction['date'].isoformat()
+                if isinstance(transaction.get('created_at'), datetime.datetime):
+                    transaction['created_at'] = transaction['created_at'].isoformat()
+            
             return jsonify({
                 'message': f'Successfully uploaded {inserted_count} transactions',
                 'inserted_count': inserted_count,
-                'inserted_ids': [str(id) for id in result.inserted_ids]
+                'inserted_ids': [str(id) for id in result.inserted_ids],
+                'transactions': inserted_transactions
             }), 201
         else:
             return jsonify({'error': 'No valid transactions to insert'}), 400
