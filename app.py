@@ -1,4 +1,6 @@
 import json
+import logging
+import logging.handlers
 #from calendar import error
 from typing import Optional
 
@@ -20,6 +22,41 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 #anthropic_client = OpenAI(api_key=ANTHROPIC_API_KEY, base_url="https://api.anthropic.com/v1/")
 #print(ANTHROPIC_API_KEY)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()  # Also log to console
+    ]
+)
+
+# Create specific loggers
+app_logger = logging.getLogger('pf_app')
+openai_logger = logging.getLogger('openai_api')
+error_logger = logging.getLogger('api_errors')
+
+# Set up rotating file handler for OpenAI API logs
+openai_handler = logging.handlers.RotatingFileHandler(
+    'openai_api.log', maxBytes=10*1024*1024, backupCount=5
+)
+openai_handler.setFormatter(logging.Formatter(
+    '%(asctime)s - %(levelname)s - %(message)s'
+))
+openai_logger.addHandler(openai_handler)
+openai_logger.setLevel(logging.DEBUG)
+
+# Set up error tracking
+error_handler = logging.handlers.RotatingFileHandler(
+    'api_errors.log', maxBytes=5*1024*1024, backupCount=3
+)
+error_handler.setFormatter(logging.Formatter(
+    '%(asctime)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s'
+))
+error_logger.addHandler(error_handler)
+error_logger.setLevel(logging.WARNING)
 
 
 # Pydantic models for request validation
@@ -68,7 +105,7 @@ MONGO_PORT = os.getenv('MONGO_PORT', '27017')
 MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', '')
 MONGO_DB_USERNAME = os.getenv('MONGO_DB_USERNAME', '')
 MONGO_DB_PASSWORD = os.getenv('MONGO_DB_PASSWORD', '')
-COLLECTION_NAME = 'transactions'
+COLLECTION_NAME = 'transdb'
 
 # Initialize MongoDB client
 #client = MongoClient(MONGO_URI)
@@ -268,24 +305,39 @@ def check_transaction():
 
 @app.route('/api/categorize', methods=['POST'])
 def categorize_transaction():
+    request_id = f"cat_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+    
     try:
         data = request.get_json()
         merchant = data.get('merchant', '')
 
+        app_logger.info(f"[{request_id}] Categorization request for merchant: '{merchant}'")
+
         if not merchant:
+            error_logger.warning(f"[{request_id}] Missing merchant in categorization request")
             return jsonify({'error': 'Merchant is required'}), 400
 
+        # Define valid categories
+        valid_categories = [
+            'Office', 'Technology', 'Travel', 'Meals', 'Marketing',
+            'Utilities', 'Education', 'Entertainment', 'Transportation',
+            'Insurance', 'Professional', 'Rent', 'Security', 'Maintenance',
+            'Taxes', 'Payroll', 'Other'
+        ]
+
+        # Log OpenAI API call start
+        openai_logger.info(f"[{request_id}] Starting OpenAI categorization call for merchant: '{merchant}'")
+        
+        start_time = datetime.datetime.now()
+        
         # Call OpenAI API to categorize the transaction
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
-            #model="claude-opus-4-1-20250805",
             messages=[
                 {
                     "role": "system",
                     "content": f"""You are a financial transaction categorizer. Given the merchant from which the transaction was made, 
-                    categorize it into one of these categories: Office, Technology, Travel, Meals, Marketing, 
-                    Utilities, Education, Entertainment, Transportation, Insurance, Professional, Rent, 
-                    Security, Maintenance, Taxes, Payroll, or Other. 
+                    categorize it into one of these categories: {', '.join(valid_categories)}. 
                     Respond with ONLY the category name, nothing else."""
                 },
                 {
@@ -296,65 +348,120 @@ def categorize_transaction():
             temperature=0.3,
             max_tokens=50
         )
+        
+        end_time = datetime.datetime.now()
+        duration = (end_time - start_time).total_seconds()
 
-        category = response.choices[0].message.content.strip()
+        raw_category = response.choices[0].message.content.strip()
+        
+        # Log detailed API response
+        openai_logger.info(f"[{request_id}] OpenAI response - Duration: {duration:.2f}s, Raw category: '{raw_category}', Usage: {response.usage}")
 
-        # Validate the category
-        valid_categories = [
-            'Office', 'Technology', 'Travel', 'Meals', 'Marketing',
-            'Utilities', 'Education', 'Entertainment', 'Transportation',
-            'Insurance', 'Professional', 'Rent', 'Security', 'Maintenance',
-            'Taxes', 'Payroll', 'Other'
-        ]
-
+        # Validate the category and detect mistakes
+        category = raw_category
+        is_mistake = False
+        mistake_reason = None
+        
         if category not in valid_categories:
+            is_mistake = True
+            mistake_reason = f"Invalid category returned: '{raw_category}'"
             category = 'Other'
+            
+            # Log the mistake
+            error_logger.error(f"[{request_id}] OpenAI API MISTAKE: {mistake_reason} for merchant '{merchant}'. Expected one of: {valid_categories}")
+            
+        # Additional mistake detection patterns
+        if len(raw_category) > 50:
+            is_mistake = True
+            mistake_reason = f"Response too long ({len(raw_category)} chars): '{raw_category[:100]}...'"
+            error_logger.error(f"[{request_id}] OpenAI API MISTAKE: {mistake_reason}")
+            
+        if any(word in raw_category.lower() for word in ['sorry', 'cannot', 'unable', 'error', 'unclear']):
+            is_mistake = True
+            mistake_reason = f"API indicated uncertainty or error: '{raw_category}'"
+            error_logger.error(f"[{request_id}] OpenAI API MISTAKE: {mistake_reason}")
 
-        return jsonify({
+        # Log successful categorization
+        if not is_mistake:
+            openai_logger.info(f"[{request_id}] Successful categorization: '{merchant}' -> '{category}'")
+        else:
+            openai_logger.warning(f"[{request_id}] Categorization with mistake corrected: '{merchant}' -> '{category}' (was: '{raw_category}')")
+
+        response_data = {
             'merchant': merchant,
             'suggested_category': category
-        }), 200
+        }
+        
+        # Include mistake info in response for debugging (can be removed in production)
+        if is_mistake:
+            response_data['_debug'] = {
+                'mistake_detected': True,
+                'original_response': raw_category,
+                'mistake_reason': mistake_reason
+            }
+
+        app_logger.info(f"[{request_id}] Categorization completed successfully")
+        return jsonify(response_data), 200
 
     except Exception as e:
-        print(f"Error calling OpenAI API: {e}")
-        return jsonify({'error': ''
-                                 ''
-                                 ''
-                                 'Failed to categorize transaction'}), 500
+        error_logger.error(f"[{request_id}] Exception in categorize_transaction: {str(e)}", exc_info=True)
+        app_logger.error(f"[{request_id}] Error calling OpenAI API: {e}")
+        return jsonify({'error': 'Failed to categorize transaction'}), 500
 
 
 @app.route('/api/insights', methods = ['GET'])
 def get_insights():
+    request_id = f"main_insights_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+    
     try:
         query = request.args.get('query', '')
+        app_logger.info(f"[{request_id}] Insights request received for query: '{query}'")
+        
         if not query:
+            error_logger.warning(f"[{request_id}] Missing query parameter in insights request")
             return jsonify({'error': 'Query parameter is required'}), 400
 
-        # step 1
-        print("starting step 1")
+        # step 1 - Extract time window
+        app_logger.info(f"[{request_id}] Step 1: Extracting time window")
         time_window = get_time_window(query)
-        print("after calling get_time_window", time_window)
+        
+        if 'error' in time_window:
+            error_logger.error(f"[{request_id}] Step 1 failed: {time_window['error']}")
+            return jsonify({'error': f"Time window extraction failed: {time_window['error']}"}), 500
+            
         start_date = time_window["start_date"]
         end_date = time_window["end_date"]
-        print("start date:", start_date)
-        print("end date:", end_date)
-        #step 2
+        app_logger.info(f"[{request_id}] Time window extracted: {start_date} to {end_date}")
+        
+        # step 2 - Query transactions
+        app_logger.info(f"[{request_id}] Step 2: Querying transactions")
         transactions = query_transactions(start_date, end_date)
-        #step 3
+        app_logger.info(f"[{request_id}] Found {len(transactions)} transactions")
+        
+        # step 3 - Generate insights
+        app_logger.info(f"[{request_id}] Step 3: Generating insights")
         insights = resolve_query(query, transactions)
+        
+        app_logger.info(f"[{request_id}] Insights request completed successfully")
         return jsonify({
             "insights": insights
         })
 
     except Exception as e:
-        print('error', e)
+        error_logger.error(f"[{request_id}] Exception in get_insights: {str(e)}", exc_info=True)
+        app_logger.error(f"[{request_id}] Error in insights endpoint: {e}")
         return jsonify({'error': str(e)}), 500
 
 #step 1
 def get_time_window(query: str) -> dict[str, str]:
+    request_id = f"time_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+    
     try:
         today = datetime.date.today().isoformat()
-        print("today:", today)
+        openai_logger.info(f"[{request_id}] Starting time window extraction for query: '{query}'")
+        
+        start_time = datetime.datetime.now()
+        
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",  # lightweight & good for structured output
             messages=[
@@ -373,11 +480,30 @@ def get_time_window(query: str) -> dict[str, str]:
             temperature=0,
             response_format={"type": "json_object"}  # ensures valid JSON
         )
-
-        #time_window = response.choices[0].message.content
-        time_window = json.loads(response.choices[0].message.content)
-        return time_window
+        
+        end_time = datetime.datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        
+        raw_response = response.choices[0].message.content
+        openai_logger.info(f"[{request_id}] Time window API response - Duration: {duration:.2f}s, Raw response: '{raw_response}', Usage: {response.usage}")
+        
+        try:
+            time_window = json.loads(raw_response)
+            
+            # Validate the response structure
+            if not isinstance(time_window, dict) or 'start_date' not in time_window or 'end_date' not in time_window:
+                error_logger.error(f"[{request_id}] OpenAI API MISTAKE: Invalid JSON structure in time window response: {raw_response}")
+                return {'error': 'Invalid time window format from API'}
+                
+            openai_logger.info(f"[{request_id}] Successful time window extraction: {time_window}")
+            return time_window
+            
+        except json.JSONDecodeError as je:
+            error_logger.error(f"[{request_id}] OpenAI API MISTAKE: Invalid JSON in time window response: {raw_response}")
+            return {'error': 'Invalid JSON response from API'}
+            
     except Exception as e:
+        error_logger.error(f"[{request_id}] Exception in get_time_window: {str(e)}", exc_info=True)
         return {'error': str(e)}
 
 
@@ -406,32 +532,166 @@ def query_transactions(start_date: str, end_date: str) -> list[{}]:
 
 #step 3
 def resolve_query(query: str, transactions: list[{}]) -> str:
-    #transactions_json = json.dumps(transactions)
-    transactions_json = json_util.dumps(transactions, ensure_ascii=False)
-    response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",  # lightweight & good for structured output
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a helpful assistant for a financial transaction search API. "
-                    f"""Run this {query} on the data provided in {transactions} to generate insights related to the
-                     query about the data in transactions """
-                    #"Given a user query, extract the specific date range they are asking about. "
-                    "If the query is vague (e.g., 'recent transactions'), return your best guess (e.g., last 30 days). "
-                    "Always respond with a JSON string that contains the insights"
-                )
-            },
-            #{"role": "user", "content": query}
-            {"role": "user", "content": f"Query: {query}\n\nTransactions: {transactions_json}"}
+    request_id = f"insights_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+    
+    try:
+        openai_logger.info(f"[{request_id}] Starting insights generation for query: '{query}' with {len(transactions)} transactions")
+        
+        transactions_json = json_util.dumps(transactions, ensure_ascii=False)
+        start_time = datetime.datetime.now()
+        
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",  # lightweight & good for structured output
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a helpful assistant for a financial transaction search API. "
+                        f"""Analyze the provided transaction data to generate insights related to the user query. 
+                        Always respond with valid JSON that contains meaningful insights about the transactions."""
+                    )
+                },
+                {"role": "user", "content": f"Query: {query}\n\nTransactions: {transactions_json}"}
+            ],
+            temperature=0,
+            response_format={"type": "json_object"}
+        )
+        
+        end_time = datetime.datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        
+        raw_response = response.choices[0].message.content
+        openai_logger.info(f"[{request_id}] Insights API response - Duration: {duration:.2f}s, Usage: {response.usage}")
+        
+        # Validate JSON response
+        try:
+            json.loads(raw_response)  # Test if it's valid JSON
+            openai_logger.info(f"[{request_id}] Successful insights generation")
+            return raw_response
+            
+        except json.JSONDecodeError:
+            error_logger.error(f"[{request_id}] OpenAI API MISTAKE: Invalid JSON in insights response: {raw_response[:500]}...")
+            # Return a fallback JSON response
+            fallback_response = json.dumps({
+                "error": "API returned invalid JSON",
+                "query": query,
+                "transaction_count": len(transactions)
+            })
+            return fallback_response
+            
+    except Exception as e:
+        error_logger.error(f"[{request_id}] Exception in resolve_query: {str(e)}", exc_info=True)
+        # Return error as JSON
+        return json.dumps({"error": str(e), "query": query})
 
-        ],
-        temperature=0,
-        response_format={"type": "json_object"}
-    )
 
-    #insights = json.loads(response.choices[0].message.content)
-    return response.choices[0].message.content
+@app.route('/api/logs/errors', methods=['GET'])
+def get_error_logs():
+    """
+    Endpoint to view recent OpenAI API errors and mistakes
+    """
+    try:
+        # Get query parameters
+        limit = request.args.get('limit', 50, type=int)
+        filter_type = request.args.get('type', 'all')  # all, mistakes, errors
+        
+        app_logger.info(f"Log request: limit={limit}, type={filter_type}")
+        
+        logs = []
+        
+        try:
+            # Read the error log file
+            with open('api_errors.log', 'r') as f:
+                lines = f.readlines()
+                
+            # Process the most recent logs
+            recent_lines = lines[-limit*3:] if len(lines) > limit*3 else lines
+            
+            for line in recent_lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                # Parse log entries that contain OpenAI mistakes
+                if 'OpenAI API MISTAKE' in line or (filter_type == 'errors' and 'ERROR' in line):
+                    logs.append({
+                        'timestamp': line.split(' - ')[0] if ' - ' in line else 'Unknown',
+                        'message': line,
+                        'type': 'mistake' if 'MISTAKE' in line else 'error'
+                    })
+                elif filter_type == 'all' and ('ERROR' in line or 'WARNING' in line):
+                    logs.append({
+                        'timestamp': line.split(' - ')[0] if ' - ' in line else 'Unknown', 
+                        'message': line,
+                        'type': 'general'
+                    })
+                    
+        except FileNotFoundError:
+            return jsonify({
+                'message': 'No error log file found yet',
+                'logs': [],
+                'count': 0
+            }), 200
+            
+        # Sort by timestamp (most recent first) and limit
+        logs = sorted(logs, key=lambda x: x['timestamp'], reverse=True)[:limit]
+        
+        return jsonify({
+            'logs': logs,
+            'count': len(logs),
+            'filter_type': filter_type,
+            'limit': limit
+        }), 200
+        
+    except Exception as e:
+        error_logger.error(f"Error reading logs: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to read logs: {str(e)}'}), 500
+
+
+@app.route('/api/logs/openai', methods=['GET'])
+def get_openai_logs():
+    """
+    Endpoint to view recent OpenAI API call logs
+    """
+    try:
+        limit = request.args.get('limit', 20, type=int)
+        
+        logs = []
+        
+        try:
+            with open('openai_api.log', 'r') as f:
+                lines = f.readlines()
+                
+            # Get recent lines
+            recent_lines = lines[-limit*2:] if len(lines) > limit*2 else lines
+            
+            for line in recent_lines:
+                line = line.strip()
+                if line:
+                    logs.append({
+                        'timestamp': line.split(' - ')[0] if ' - ' in line else 'Unknown',
+                        'message': line
+                    })
+                    
+        except FileNotFoundError:
+            return jsonify({
+                'message': 'No OpenAI log file found yet',
+                'logs': [],
+                'count': 0
+            }), 200
+            
+        # Sort by timestamp (most recent first) and limit
+        logs = sorted(logs, key=lambda x: x['timestamp'], reverse=True)[:limit]
+        
+        return jsonify({
+            'logs': logs,
+            'count': len(logs),
+            'limit': limit
+        }), 200
+        
+    except Exception as e:
+        error_logger.error(f"Error reading OpenAI logs: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to read OpenAI logs: {str(e)}'}), 500
 
 
 @app.route('/api/uploadcsv', methods=['POST'])
