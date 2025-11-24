@@ -4,11 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b274c144-1c31-4a0f-b17c-f70839e72fa8" name="Changes" comment="added check_transaction function and cleaned up code">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-    </list>
+    <list default="true" id="b274c144-1c31-4a0f-b17c-f70839e72fa8" name="Changes" comment="changed collection name" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -127,7 +123,7 @@
       <workItem from="1752177625983" duration="1022000" />
       <workItem from="1752180298316" duration="590000" />
       <workItem from="1763947151787" duration="3444000" />
-      <workItem from="1763966917990" duration="4925000" />
+      <workItem from="1763966917990" duration="5314000" />
     </task>
     <task id="LOCAL-00001" summary="added to mongodb cloud">
       <option name="closed" value="true" />
@@ -233,7 +229,15 @@
       <option name="project" value="LOCAL" />
       <updated>1751912434502</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="changed collection name">
+      <option name="closed" value="true" />
+      <created>1764023108468</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1764023108468</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -262,12 +266,13 @@
     <MESSAGE value="initialized original stuff" />
     <MESSAGE value="initialized the original stuff" />
     <MESSAGE value="added check_transaction function and cleaned up code" />
-    <option name="LAST_COMMIT_MESSAGE" value="added check_transaction function and cleaned up code" />
+    <MESSAGE value="changed collection name" />
+    <option name="LAST_COMMIT_MESSAGE" value="changed collection name" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/mongodbtest$mongo.coverage" NAME="mongo Coverage Results" MODIFIED="1750208929099" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mongodbtest$Flask.coverage" NAME="Flask Coverage Results" MODIFIED="1751577756051" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/pf_api_server$Flask.coverage" NAME="Flask Coverage Results" MODIFIED="1763972955086" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/pf_api_server$Flask.coverage" NAME="Flask Coverage Results" MODIFIED="1764022990101" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mongodbtest$mongo2.coverage" NAME="mongo2 Coverage Results" MODIFIED="1750887358649" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/pf_api_server$app.coverage" NAME="app Coverage Results" MODIFIED="1763966893969" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mongodbtest$app.coverage" NAME="app Coverage Results" MODIFIED="1751579821429" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
