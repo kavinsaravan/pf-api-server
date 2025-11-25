@@ -105,7 +105,7 @@ MONGO_PORT = os.getenv('MONGO_PORT', '27017')
 MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', '')
 MONGO_DB_USERNAME = os.getenv('MONGO_DB_USERNAME', '')
 MONGO_DB_PASSWORD = os.getenv('MONGO_DB_PASSWORD', '')
-COLLECTION_NAME = 'transdb'
+COLLECTION_NAME = 'newtransdb'
 
 # Initialize MongoDB client
 #client = MongoClient(MONGO_URI)
