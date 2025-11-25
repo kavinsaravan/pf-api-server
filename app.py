@@ -91,11 +91,8 @@ def get_current_user(authorization: str):
 
 
 app = Flask(__name__)
- # Enable CORS for React frontend
-CORS(app, origins=["http://localhost:3000", "https://pf-reactjs.onrender.com"], supports_credentials=True)
-#CORS(app)
-#CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
-CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"])
+# Enable CORS for React frontend
+CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000", "https://pf-reactjs.onrender.com"], supports_credentials=True)
 
 # MongoDB connection
 # Update these with your MongoDB credentials
@@ -261,7 +258,7 @@ def create_entry():
         data = request.get_json()
 
         # Validate required fields
-        required_fields = ['date', 'description', 'category', 'amount']
+        required_fields = ['date', 'merchant', 'category', 'amount']
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
@@ -290,7 +287,7 @@ def check_transaction():
         print(request_data)
 
         # Validate required fields
-        required_fields = ['description', 'category', 'amount']
+        required_fields = ['merchant', 'category', 'amount']
         for field in required_fields:
             if field not in request_data:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
@@ -306,16 +303,17 @@ def check_transaction():
 @app.route('/api/categorize', methods=['POST'])
 def categorize_transaction():
     request_id = f"cat_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
-    
+
     try:
         data = request.get_json()
-        description = data.get('description', '')
+        # Support both 'description' and 'merchant' for backward compatibility
+        merchant = data.get('merchant', '')
 
-        app_logger.info(f"[{request_id}] Categorization request for description: '{description}'")
+        app_logger.info(f"[{request_id}] Categorization request for merchant: '{merchant}'")
 
-        if not description:
-            error_logger.warning(f"[{request_id}] Missing description in categorization request")
-            return jsonify({'error': 'Description is required'}), 400
+        if not merchant:
+            error_logger.warning(f"[{request_id}] Missing merchant in categorization request")
+            return jsonify({'error': 'Merchant or merchant field is required'}), 400
 
         # Define valid categories
         valid_categories = [
@@ -326,7 +324,7 @@ def categorize_transaction():
         ]
 
         # Log OpenAI API call start
-        openai_logger.info(f"[{request_id}] Starting OpenAI categorization call for description: '{description}'")
+        openai_logger.info(f"[{request_id}] Starting OpenAI categorization call for merchant: '{merchant}'")
         
         start_time = datetime.datetime.now()
         
@@ -336,13 +334,13 @@ def categorize_transaction():
             messages=[
                 {
                     "role": "system",
-                    "content": f"""You are a financial transaction categorizer. Given the description from which the transaction was made, 
+                    "content": f"""You are a financial transaction categorizer. Given the merchant from which the transaction was made, 
                     categorize it into one of these categories: {', '.join(valid_categories)}. 
                     Respond with ONLY the category name, nothing else."""
                 },
                 {
                     "role": "user",
-                    "content": f"Categorize this transaction: {description}"
+                    "content": f"Categorize this transaction: {merchant}"
                 }
             ],
             temperature=0.3,
@@ -368,7 +366,7 @@ def categorize_transaction():
             category = 'Other'
             
             # Log the mistake
-            error_logger.error(f"[{request_id}] OpenAI API MISTAKE: {mistake_reason} for description '{description}'. Expected one of: {valid_categories}")
+            error_logger.error(f"[{request_id}] OpenAI API MISTAKE: {mistake_reason} for merchant '{merchant}'. Expected one of: {valid_categories}")
             
         # Additional mistake detection patterns
         if len(raw_category) > 50:
@@ -383,12 +381,12 @@ def categorize_transaction():
 
         # Log successful categorization
         if not is_mistake:
-            openai_logger.info(f"[{request_id}] Successful categorization: '{description}' -> '{category}'")
+            openai_logger.info(f"[{request_id}] Successful categorization: '{merchant}' -> '{category}'")
         else:
-            openai_logger.warning(f"[{request_id}] Categorization with mistake corrected: '{description}' -> '{category}' (was: '{raw_category}')")
+            openai_logger.warning(f"[{request_id}] Categorization with mistake corrected: '{merchant}' -> '{category}' (was: '{raw_category}')")
 
         response_data = {
-            'description': description,
+            'merchant': merchant,
             'suggested_category': category
         }
         
@@ -711,7 +709,7 @@ def upload_transactions():
             return jsonify({'error': 'No transactions provided'}), 400
         
         # Validate each transaction
-        required_fields = ['date', 'description', 'amount']
+        required_fields = ['date', 'merchant', 'amount']
         processed_transactions = []
         validation_errors = []
         
@@ -725,7 +723,7 @@ def upload_transactions():
             # Process the transaction
             processed_transaction = {
                 'date': transaction['date'],
-                'description': transaction['description'],
+                'merchant': transaction['merchant'],
                 'amount': float(transaction['amount']),
                 'category': transaction.get('category', 'Uncategorized'),
                 'created_at': datetime.datetime.utcnow(),
